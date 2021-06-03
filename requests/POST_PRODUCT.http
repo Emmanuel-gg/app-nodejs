@@ -1,0 +1,9 @@
+POST http://localhost:3001/api/products/ HTTP/1.1
+content-type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYwYjQwMzU1ZThjYzRkMzcwYzE3OTdlZiIsInVzZXJuYW1lIjoiZW1tYW51ZWwiLCJpYXQiOjE2MjI0MTI0MTd9.MttNSFPDfJ9O9EHTaXyLay1QcoJYguO845kPGoCnQuA
+
+{
+  "name": "Producto 2",
+  "important": true,
+  "bougth": "123456789"
+}
