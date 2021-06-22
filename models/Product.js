@@ -4,6 +4,7 @@ const productSchema = new Schema({
   name: String,
   important: Boolean,
   bought: Boolean,
+  price: Number,
   user: {
     type: Schema.Types.ObjectId,
     ref: 'User'
@@ -12,6 +13,7 @@ const productSchema = new Schema({
 
 productSchema.set('toJSON', {
   transform: (_, returnedObject) => {
+    console.log({ returnedObject })
     returnedObject = removeIdV(returnedObject)
   }
 })

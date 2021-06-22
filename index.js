@@ -14,10 +14,6 @@ app.use(cors())
 app.use(express.json())
 
 // ROUTES AVALAIBLES
-app.get('/', (_, response) => {
-  response.send('<h1>emmanuel2013161997@gmail.com +458 412 168 1517</h1>')
-})
-
 // Auth routes
 app.use('/api/auth', authRouter)
 

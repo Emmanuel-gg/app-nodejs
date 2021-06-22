@@ -1,11 +1,12 @@
 /* eslint jest/no-hooks: ["error", { "allow": ["afterAll"] }] */
 const mongoose = require('mongoose')
 const { api, server } = require('./helpers/')
-const { getUsers, setupUsers } = require('./helpers/users')
+const { getUsers, setupUsers, TestUser } = require('./helpers/users')
+const { errorMessages } = require('../errors')
 describe('user tests', () => {
   it('should insert a user', async () => {
     expect.assertions(2)
-    const usersAtStart = await setupUsers()
+    const { users: usersAtStart } = await setupUsers()
 
     const newUser = {
       username: 'usuario',
@@ -27,30 +28,24 @@ describe('user tests', () => {
 
   it('should fail with a username already taken', async () => {
     expect.assertions(3)
-    const usersAtStart = await setupUsers()
-
-    const newUser = {
-      username: 'emmanuel',
-      name: 'Juan',
-      password: 'password'
-    }
+    const { users: usersAtStart } = await setupUsers()
 
     const result = await api
       .post('/api/users')
-      .send(newUser)
+      .send(TestUser)
       .expect(400)
       .expect('Content-Type', /application\/json/)
 
-    expect(result.body.errors.username.message).toContain(' already be taken')
+    expect(result.body.errors.username.messages).toContain('username already be taken')
     const usersAtEnd = await getUsers()
     expect(usersAtEnd).toHaveLength(usersAtStart.length)
     const names = usersAtEnd.map(u => u.name)
-    expect(names).not.toContain(newUser.name)
+    expect(names).not.toContain(TestUser.name)
   }, 30000)
 
   it('should fail if receives neither password nor username nor name', async () => {
     expect.assertions(4)
-    const usersAtStart = await setupUsers()
+    const { users: usersAtStart } = await setupUsers()
 
     const newUser = {
     }
@@ -61,9 +56,9 @@ describe('user tests', () => {
       .expect(400)
       .expect('Content-Type', /application\/json/)
 
-    expect(result.body.errors.username).toContain('Debe de proveer un nombre de usuario.')
-    expect(result.body.errors.name).toContain('Debe de proveer un nombre.')
-    expect(result.body.errors.password).toContain('Debe de proveer una contraseña.')
+    expect(result.body.errors.username.messages).toContain(errorMessages.MissingParam('username'))
+    expect(result.body.errors.name.messages).toContain(errorMessages.MissingParam('name'))
+    expect(result.body.errors.password.messages).toContain(errorMessages.MissingParam('password'))
 
     const usersAtEnd = await getUsers()
     expect(usersAtEnd).toHaveLength(usersAtStart.length)

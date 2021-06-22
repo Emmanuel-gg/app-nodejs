@@ -1,47 +1,111 @@
 
-const User = require('../models/User')
-const Product = require('../models/product')
+const { checkForErrors, hasError, errorMessages } = require('../errors')
 const productsRouter = require('express').Router()
-const jwt = require('jsonwebtoken')
+const Product = require('../models/product')
+const User = require('../models/User')
+const auth = require('../middelware/auth')
+const { STRING, BOOLEAN, REQUIRED, AT_LEAST_OF } = require('../validations')
+productsRouter.post('/', auth, async (request, response, next) => {
+  const { body } = request
+  const { name, important, id } = body
 
-productsRouter.post('/', async (request, response, next) => {
-  try {
-    const { body } = request
-    const { name, important, bought } = body
-
-    const authorization = request.get('authorization')
-    let token = null
-    if (authorization && authorization.toLocaleLowerCase().startsWith('bearer')) {
-      token = authorization.substring(7)
+  const errors = checkForErrors({
+    name: {
+      param: name,
+      validations: [STRING, REQUIRED]
     }
-    if (!token) { return response.status(401).json({ error: 'token missing or invalid' }) }
-    const decodeToken = jwt.verify(token, process.env.JSON_WEB_TOKEN_SECRET)
+  })
 
-    if (!decodeToken || !decodeToken.id) { return response.status(401).json({ error: 'token missing or invalid' }) }
-
-    const user = await User.findById(decodeToken.id)
+  if (hasError(errors)) {
+    next({ name: 'ValidationError', errors })
+  } else {
+    const user = await User.findById(id)
     const product = new Product({
       name,
-      important,
-      bought,
+      important: important || false,
+      bought: false,
       user: user._id
     })
+
     const savedProduct = await product.save()
     user.products = user.products.concat(savedProduct._id)
-    user.save()
+    await user.save()
 
     response.status(201).json(savedProduct)
-  } catch (e) {
-    console.log({ e })
-    next(e)
   }
 })
+
 productsRouter.get('/', async (request, response) => {
   const products = await Product.find({}).populate('user', {
     username: 1,
     name: 1
   })
   response.json(products)
+})
+
+productsRouter.delete('/:id?', auth, async (request, response, next) => {
+  const { body, params } = request
+  const { id } = body
+  const idProducto = params.id
+  if (!idProducto) {
+    if (body.action === 'delete') {
+      await Product.deleteMany({})
+      const user = await User.findById(id)
+      user.products = []
+      await user.save()
+
+      response.status(204).end()
+    } else {
+      next({ name: 'ValidationError', errors: { id: { messages: [errorMessages.MissingParam('id')] } } })
+    }
+  } else {
+    const productToDelete = await Product.findById(idProducto)
+
+    if (!productToDelete) {
+      next({ error: { name: 'ResourceNotFound', resource: 'Product' } })
+    }
+
+    await Product.deleteOne({ _id: idProducto })
+    const user = await User.findById(id)
+    user.products = user.products.filter(product => product.id !== idProducto)
+    await user.save()
+
+    response.status(204).end()
+  }
+})
+
+productsRouter.patch('/:id', auth, async (request, response, next) => {
+  const { body, params } = request
+  const idProducto = params.id
+
+  const errors = checkForErrors({
+    name: {
+      param: body.name,
+      validations: [STRING, AT_LEAST_OF('dataProduct', 'Product Data', 1)]
+    },
+    important: {
+      param: body.important,
+      validations: [BOOLEAN, AT_LEAST_OF('dataProduct', 'Product Data', 1)]
+    },
+    idProducto: {
+      param: idProducto,
+      validations: [STRING, REQUIRED]
+    }
+  })
+
+  if (hasError(errors)) {
+    next({ name: 'ValidationError', errors })
+  } else {
+    const productToPatch = await Product.findById(idProducto)
+
+    if (!productToPatch) {
+      next({ error: { name: 'ResourceNotFound', resource: 'Product' } })
+    }
+
+    const product = await Product.updateOne({ _id: idProducto }, { $set: body })
+
+    response.status(200).end(product)
+  }
 })
 
 module.exports = productsRouter
